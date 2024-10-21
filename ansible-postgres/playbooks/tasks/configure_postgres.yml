@@ -1,0 +1,17 @@
+---
+- name: Configure PostgreSQL settings
+  become: true
+  copy:
+    dest: "/etc/postgresql/16/main/postgresql.conf"
+    content: |
+      # PostgreSQL Configuration
+      max_connections = 100  # Number of allowed connections
+      shared_buffers = '256MB'  # Memory allocated to shared buffers
+
+  notify: Restart PostgreSQL
+
+- name: Restart PostgreSQL to apply changes
+  systemd:
+    name: postgresql
+    state: restarted
+

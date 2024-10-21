@@ -6,6 +6,12 @@
     - name: Install PostgreSQL
       include_tasks: tasks/install.yml  # Install PostgreSQL on all servers
 
+- name: Apply PostgreSQL configuration
+  hosts: all
+  become: yes
+  tasks:
+    - include_tasks: tasks/configure_postgres.yml # Configure params like max_conn and shared buffers
+
 - name: Configure PostgreSQL Primary
   hosts: primary-db
   become: yes
