@@ -148,4 +148,89 @@ This endpoint deploys the PostgreSQL infrastructure on AWS and configures the in
 1. **SSH access to EC2 instances**: Ensure you have the correct SSH key file configured and accessible.
 2. **Environment variables**: If environment variables aren't applied, double-check that they are correctly set before running Terraform or Ansible.
 
+## Testing the Replication Setup
+
+After setting up replication, it is important to verify that the replica node is correctly connected to the primary node and that the replication is working as intended.
+
+### Step 1: Verify the Replication State
+
+1. **On the Primary Server**:
+
+   - Log into the primary server and switch to the `postgres` user:
+
+     ```bash
+     sudo -u postgres psql
+     ```
+
+   - Query the `pg_stat_replication` table to check if the replica is connected and replication is active:
+
+     ```sql
+     SELECT client_addr, state FROM pg_stat_replication;
+     SELECT * FROM pg_stat_replication;
+     ```
+
+   - You should see information regarding the replica’s IP address and the replication state, confirming that the replication setup is active.
+
+### Step 2: Test Data Replication
+
+1. **Create a Test Database and Table on the Primary Server**:
+
+   - Create a new database to test replication:
+
+     ```sql
+     CREATE DATABASE students_db;
+     ```
+
+   - Connect to the new database:
+
+     ```sql
+     \c students_db;
+     ```
+
+   - Create a table inside the `students_db` database:
+
+     ```sql
+     CREATE TABLE student_details (first_name VARCHAR(15), last_name VARCHAR(15), email VARCHAR(40));
+     ```
+
+   - Insert a test record into the `student_details` table:
+
+     ```sql
+     INSERT INTO student_details (first_name, last_name, email)
+     VALUES ('Arthur', 'Spencer', 'arthurspencer@gmail.com');
+     ```
+
+   - Verify the record was inserted:
+
+     ```sql
+     SELECT * FROM student_details;
+     ```
+
+2. **Check the Replication on the Replica Node**:
+
+   - On the replica node, switch to the `postgres` user:
+
+     ```bash
+     sudo -u postgres psql
+     ```
+
+   - List the databases to ensure the `students_db` database has been replicated:
+
+     ```sql
+     \l
+     ```
+
+   - Connect to the `students_db`:
+
+     ```sql
+     \c students_db;
+     ```
+
+   - Query the `student_details` table to confirm the data has been replicated:
+
+     ```sql
+     SELECT * FROM student_details;
+     ```
+
+   - You should see the same data that was inserted on the primary node, confirming that the replication is working correctly.
 
