@@ -1,0 +1,10 @@
+---
+- name: Create helloworld.txt with "Hello World" content on all machines
+  hosts: all
+  become: yes
+  tasks:
+    - name: Create the helloworld.txt file with "Hello World" content
+      copy:
+        content: "Hello World"
+        dest: /home/ubuntu/helloworld.txt
+
