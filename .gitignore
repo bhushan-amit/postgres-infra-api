@@ -1,0 +1,4 @@
+# Ignore Vim swap files
+ansible-postgres/playbooks/tasks/*.swp
+ansible-postgres/playbooks/tasks/*.swo
+
