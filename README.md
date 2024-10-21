@@ -22,7 +22,6 @@ This repository contains  Ansible playbooks, Terraform configurations and a Flas
     - [Running the API](#running-the-api)
     - [Deploying Infrastructure](#deploying-infrastructure)
 5. [API Endpoints](#api-endpoints)
-6. [License](#license)
 
 ---
 
