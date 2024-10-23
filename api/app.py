@@ -44,6 +44,7 @@ def generate_main_tf(instance_type, replica_count):
     resource "aws_instance" "primary_db" {
       ami           = "ami-0dee22c13ea7a9a67"
       instance_type = "{{ instance_type }}"
+      key_name      = "imamit.a001"
       security_groups = [aws_security_group.postgres_sg.name]
 
       tags = {
@@ -55,6 +56,7 @@ def generate_main_tf(instance_type, replica_count):
       count         = {{ replica_count }}
       ami           = "ami-0dee22c13ea7a9a67"
       instance_type = "{{ instance_type }}"
+      key_name      = "imamit.a001"
       security_groups = [aws_security_group.postgres_sg.name]
 
       tags = {
@@ -223,15 +225,15 @@ echo "" >> $inventory_path
     - name: Update PostgreSQL configuration and restart service
       lineinfile:
         path: /etc/postgresql/16/main/postgresql.conf
-        regexp: '^max_connections\\s*=\\s*\\d+'
+        regexp: '^max_connections'
         line: 'max_connections = {{ max_connections }}'
       notify: Restart PostgreSQL
 
     - name: Update shared_buffers to '{{ shared_buffers }}'
       lineinfile:
         path: /etc/postgresql/16/main/postgresql.conf
-        regexp: '^shared_buffers\\s*=\\s*[\'"]?\\d+MB[\'"]?'
-        line: 'shared_buffers = \'{{ shared_buffers }}\''
+        regexp: '^shared_buffers'
+        line: "shared_buffers = '{{ shared_buffers }}'"
       notify: Restart PostgreSQL
 {% raw %}
     - name: Configure PostgreSQL for replication (Primary)
@@ -323,7 +325,7 @@ class ExecuteAnsibleScript(Resource):
             # Execute the Ansible playbook
             ansible_inventory = "/home/ubuntu/ansible/inventory/hosts"
             playbook_path = "/home/ubuntu/ansible/main.yml"
-            subprocess.run(["ansible-playbook", "-i", ansible_inventory, ansible_playbook], check=True)
+            subprocess.run(["ansible-playbook", "-i", ansible_inventory, playbook_path], check=True)
 
             return jsonify({"message": "Ansible playbook executed successfully!"})
         except subprocess.CalledProcessError as e:
