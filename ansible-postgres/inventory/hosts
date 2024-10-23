@@ -1,9 +1,0 @@
-
-[primary]
-primary-db ansible_host=3.110.164.243 ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu/imamit.a001.pem
-
-[replicas]
-replica-db1 ansible_host=65.0.109.182 ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu/imamit.a001.pem
-replica-db2 ansible_host=13.201.85.1 ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu/imamit.a001.pem
-
-

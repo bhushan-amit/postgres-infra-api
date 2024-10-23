@@ -1,5 +1,0 @@
-# recovery.conf template for replicas
-
-standby_mode = 'on'
-primary_conninfo = 'host={{ hostvars[groups["primary"][0]].ansible_host }} port=5432 user=replica_user password=replica_password'
-trigger_file = '/tmp/postgresql.trigger'
