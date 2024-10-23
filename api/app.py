@@ -198,7 +198,7 @@ echo "" >> $inventory_path
     def create_main_playbook(self, max_connections, shared_buffers):
         # Path to the main playbook
         playbook_path = "/home/ubuntu/ansible/main.yml"
-
+        print ("Hello")
         # Define the template for the main playbook
         playbook_template = """
 ---
@@ -233,7 +233,7 @@ echo "" >> $inventory_path
         regexp: '^shared_buffers\\s*=\\s*[\'"]?\\d+MB[\'"]?'
         line: 'shared_buffers = \'{{ shared_buffers }}\''
       notify: Restart PostgreSQL
-
+{% raw %}
     - name: Configure PostgreSQL for replication (Primary)
       lineinfile:
         path: /etc/postgresql/16/main/postgresql.conf
@@ -286,7 +286,7 @@ echo "" >> $inventory_path
       become: true
       environment:
         PGPASSWORD: 'replica_password'
-
+{% endraw %}
     - name: Ensure correct ownership of the PostgreSQL data directory
       file:
         path: /var/lib/postgresql/16/main
@@ -306,7 +306,7 @@ echo "" >> $inventory_path
       systemd:
         name: postgresql
         state: restarted
-"""
+"""        
 
         # Render the playbook content using Jinja2
         template = Template(playbook_template)
@@ -314,7 +314,7 @@ echo "" >> $inventory_path
 
         # Write the rendered playbook content to the file
         with open(playbook_path, 'w') as f:
-            f.write(rendered_playbook_content.strip())
+            f.write(rendered_playbook_content)
 
 
 class ExecuteAnsibleScript(Resource):
