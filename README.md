@@ -94,6 +94,11 @@ Ensure Terraform and Ansible are properly installed and available on your system
 
   Install AWS Cli and configure your AWS credentials for interacting with AWS and Terraform
 
+## Assumptions
+
+### 1. We have a pem key handy in our AWS account and local machine, which we will use as pem key for connecting with ansible hosts
+
+One can easily send their local keys to the machine using scp or pscp command.
 
 ## Available API Endpoints
 

@@ -224,6 +224,18 @@ echo "" >> $inventory_path
         state: started
         enabled: yes
 
+    - name: Install ACL
+      apt:
+        name: acl
+        state: present
+      when: "'primary' in group_names"
+
+    - name: Install psycopg2
+      apt:
+        name: python3-psycopg2
+        state: present
+      when: "'primary' in group_names"
+
     - name: Update PostgreSQL configuration and restart service
       lineinfile:
         path: /etc/postgresql/16/main/postgresql.conf
