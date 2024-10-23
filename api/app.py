@@ -179,7 +179,7 @@ echo "primary-db ansible_host=$primary_ip ansible_user=ubuntu ansible_ssh_privat
 echo "" >> $inventory_path
 
 counter = 1
-echo "[replicas]" >> $inventory_path
+echo "[replica]" >> $inventory_path
 for ip in $replica_ips; do
   echo "replica-db${counter} ansible_host=$ip ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu/imamit.a001.pem" >> $inventory_path
   ((counter++))
@@ -252,7 +252,7 @@ echo "" >> $inventory_path
       lineinfile:
         path: /etc/postgresql/16/main/pg_hba.conf
         line: "host replication all {{ item }}/32 md5"
-      loop: "{{ groups['replicas'] | map('extract', hostvars, 'ansible_host') | list }}"
+      loop: "{{ groups['replica'] | map('extract', hostvars, 'ansible_host') | list }}"
       when: "'primary' in group_names" 
 
     - name: Create replication user

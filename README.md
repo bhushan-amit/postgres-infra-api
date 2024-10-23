@@ -235,7 +235,7 @@ After setting up replication, it is important to verify that the replica node is
 
      ```sql
      INSERT INTO student_details (first_name, last_name, email)
-     VALUES ('Arthur', 'Spencer', 'arthurspencer@gmail.com');
+     VALUES ('Amit', 'Bhushan', 'imamit.a001@gmail.com');
      ```
 
    - Verify the record was inserted:
