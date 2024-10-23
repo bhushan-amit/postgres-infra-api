@@ -16,12 +16,11 @@ This repository contains  Ansible playbooks, Terraform configurations and a Flas
 ## Table of Contents
 
 1. [Requirements](#requirements)
-2. [Installation](#installation)
-3. [Repository Structure](#repository-structure)
+2. [Flask Setup](#installation)
+3. [Available API Endpoints](#available-api-endpoints)
 4. [Usage](#usage)
-    - [Running the API](#running-the-api)
-    - [Deploying Infrastructure](#deploying-infrastructure)
-5. [API Endpoints](#api-endpoints)
+5. [Repository Structure](#repository-structure-after-running-all-the-scripts)
+6. [Testing the Replication Setup](#testing-the-replication-setup)
 
 ---
 
@@ -36,21 +35,55 @@ Before getting started, ensure that you have the following tools installed on yo
 
 ## Installation
 
-### 1. Clone the Repository
+### Creating a Virtual Environment and Running the Application
+
+To ensure that your Python dependencies are isolated and do not interfere with other projects, it's a good practice to use a virtual environment. Here are the steps to create a virtual environment and run the Flask application:
+
+### 1. Create a Virtual Environment
+
+Navigate to the root of your project directory and run the following command to create a virtual environment:
 
 ```bash
-git clone https://github.com/bhushan-amit/postgres-infra-api.git
-cd postgres-infra-api
+python -m venv venv
 ```
 
-### 2. Install Python Requirements
+This command will create a new directory named `venv` in your project folder, which will contain the Python interpreter and libraries for your project.
 
-The Flask API requires some Python dependencies to be installed.
+### 2. Activate the Virtual Environment
+
+Activate the virtual environment using the following command:
+
+- **On Windows**:
+
+  ```bash
+  venv\Scripts\activate
+  ```
+
+- **On macOS and Linux**:
+
+  ```bash
+  source venv/bin/activate
+  ```
+
+After activation, your command prompt will change to indicate that the virtual environment is active.
+
+### 3. Install the Required Dependencies
+
+With the virtual environment activated, install the required dependencies from the `requirements.txt` file:
 
 ```bash
-cd api
-pip install -r requirements.txt
+pip install -r api/requirements.txt
 ```
+
+### 4. Run the Flask Application
+
+Now you can run the Flask application. Make sure you are still in the `api` directory and execute the following command:
+
+```bash
+python app.py
+```
+
+The Flask application will start running on `http://127.0.0.1:5000` by default.
 
 ### 3. Install Terraform and Ansible
 
@@ -59,93 +92,99 @@ Ensure Terraform and Ansible are properly installed and available on your system
 - Terraform installation: [Terraform Install Guide](https://developer.hashicorp.com/terraform/downloads)
 - Ansible installation: [Ansible Install Guide](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html)
 
-## Repository Structure
+  Install AWS Cli and configure your AWS credentials for interacting with AWS and Terraform
+
+
+## Available API Endpoints
+
+### /generate-terraform (POST)
+
+This endpoint generates the Terraform configuration for the specified instance type and replica count.
+
+### /plan-terraform (POST)
+
+This endpoint creates a Terraform plan for the infrastructure deployment.
+
+### /apply-terraform (POST)
+
+This endpoint applies the Terraform configuration to provision the infrastructure.
+
+### /create-ansible-script (POST)
+
+This endpoint creates an Ansible script for configuring the PostgreSQL instances.
+
+### /execute-ansible-script (POST)
+
+This endpoint executes the generated Ansible script on the infrastructure provisioned by Terraform.
+
+## Usage
+
+To set up your PostgreSQL read-replicas infrastructure, follow the steps below:
+
+1. **Generate Terraform Configuration**:
+   Use the following command to generate the Terraform configuration for your infrastructure:
+
+   ```bash
+   curl -X POST http://localhost:5000/generate-terraform \
+   -H "Content-Type: application/json" \
+   -d '{"instance_type": "t2.medium", "replica_count": 4}'
+   ```
+
+2. **Plan Terraform Deployment**:
+   After generating the configuration, plan the deployment with:
+
+   ```bash
+   curl -X POST http://localhost:5000/plan-terraform \
+   -H "Content-Type: application/json"
+   ```
+
+3. **Apply Terraform Deployment**:
+   Once the plan is ready, apply the Terraform configuration to create the infrastructure:
+
+   ```bash
+   curl -X POST http://localhost:5000/apply-terraform \
+   -H "Content-Type: application/json"
+   ```
+
+4. **Create Ansible Script**:
+   Next, create the Ansible script for configuring the PostgreSQL instances:
+
+   ```bash
+   curl -X POST http://localhost:5000/create-ansible-script \
+   -H "Content-Type: application/json" \
+   -d '{"max_connections": 200, "shared_buffers": "128MB"}'
+   ```
+
+5. **Execute Ansible Script**:
+   Finally, execute the Ansible script to configure the PostgreSQL instances:
+
+   ```bash
+   curl -X POST http://localhost:5000/execute-ansible-script \
+   -H "Content-Type: application/json"
+   ```
+
+## Repository Structure After Running all the Scripts
 
 ```bash
 postgres-infra-api/
 ├── api/                    # Flask API application
 │   ├── app.py              # Flask application
 │   ├── requirements.txt    # Python requirements
-├── ansible-postgres/        # Ansible playbooks for PostgreSQL setup
-│   ├── playbooks/
-│   ├── inventory/           # Generated dynamically
+├── ansible/        # Ansible playbooks for PostgreSQL setup
+│   ├── main.yml/
+│   ├── inventory/
+|       ├──hosts         # Generated dynamically
 ├── terraform/               # Terraform scripts for AWS infrastructure
 │   ├── main.tf
-│   ├── variables.tf
 │   ├── outputs.tf
-│   ├── terraform.tfvars
-│   ├── generate_inventory.sh
-└── README.md
+├── imamit.a001.pem
 ```
-
-## Usage
-
-### 1. Configure Terraform Variables
-
-Edit the `terraform/terraform.tfvars` file to set up your AWS settings:
-
-Here you can specify instance types and the number of replicas:
-
-```hcl
-region = "ap-south-1"
-instance_type = "t2.micro"
-replica_count = 2
-
-```
-
-### 2. Running the API
-
-To start the Flask API, navigate to the `api/` directory and run the following:
-
-```bash
-python app.py
-```
-
-The API will start on `http://127.0.0.1:5000` by default.
-
-### 3. Deploying Infrastructure
-
-You can now use the API to deploy the infrastructure. The API supports POST requests to create the infrastructure dynamically based on the number of replicas and instance type.
-
-### Example API Request
-
-Use `curl` or any API testing tool to send a POST request to the `/setup` endpoint to deploy the infrastructure.
-
-```bash
-curl -X POST http://127.0.0.1:5000/setup -H "Content-Type: application/json" -d '{
-  "instance_type": "t2.micro",
-  "replica_count": 2
-}'
-```
-
-This will:
-
-1. Initialize Terraform.
-2. Deploy AWS infrastructure for PostgreSQL (Primary DB + Replicas).
-3. Dynamically generate an Ansible inventory.
-4. Run Ansible playbooks to configure the PostgreSQL instances.
-
-### 4. Updating Infrastructure
-
-To change the number of replicas or update any other settings, simply modify the parameters in the API request and send another POST request.
-
-## API Endpoints
-
-### `/setup` (POST)
-
-This endpoint deploys the PostgreSQL infrastructure on AWS and configures the instances using Ansible.
-
-- **Request Body**:
-  - `instance_type`: (string) AWS instance type (e.g., `t2.micro`)
-  - `replica_count`: (int) Number of PostgreSQL replica instances to deploy
-
-- **Response**: Success or failure message with logs.
 
 
 ## Troubleshooting
 
 1. **SSH access to EC2 instances**: Ensure you have the correct SSH key file configured and accessible.
-2. **Environment variables**: If environment variables aren't applied, double-check that they are correctly set before running Terraform or Ansible.
+
 
 ## Testing the Replication Setup
 
@@ -232,4 +271,5 @@ After setting up replication, it is important to verify that the replica node is
      ```
 
    - You should see the same data that was inserted on the primary node, confirming that the replication is working correctly.
+
 
