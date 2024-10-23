@@ -140,24 +140,113 @@ class ApplyTerraform(Resource):
             # Capture the output on error
             return jsonify({"error": str(e), "output": e.stderr}), 500
 
-class ExecuteAnsible(Resource):
+
+class CreateAnsibleScript(Resource):
     def post(self):
         try:
-            # Run the Ansible playbook
-            ansible_inventory = "/home/ubuntu/ansible/inventory/hosts"  # Updated with the correct path
-            ansible_playbook = "/home/ubuntu/ansible/playbooks/main.yml"  # Updated with the correct path
+            self.create_inventory()
 
-            subprocess.run(["ansible-playbook", "-i", ansible_inventory, ansible_playbook], check=True)
+            # self.create_main_playbook()
+
+            return jsonify({"message": "Ansible inventory and playbook created successfully!"})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    def create_inventory(self):
+        terraform_dir = "/home/ubuntu/TF"
+        os.chdir(terraform_dir)
+
+        # Define the shell script to generate Ansible inventory
+        inventory_script = """
+#!/bin/bash
+
+# Fetch the public IP addresses from Terraform outputs
+primary_ip=$(terraform output -raw primary_db_public_ip)
+replica_ips=$(terraform output -json replica_db_public_ips | jq -r '.[]')
+
+# Path to store the generated Ansible inventory
+inventory_path="/home/ubuntu/ansible/inventory/hosts"
+mkdir -p "$(dirname "$inventory_path")"
+
+# Generate Ansible inventory file
+echo "[primary]" > $inventory_path
+echo "primary-db ansible_host=$primary_ip ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu/imamit.a001.pem" >> $inventory_path
+echo "" >> $inventory_path
+
+echo "[replicas]" >> $inventory_path
+for ip in $replica_ips; do
+  echo "replica-db ansible_host=$ip ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu/imamit.a001.pem" >> $inventory_path
+done
+
+echo "" >> $inventory_path
+"""
+
+        # Write the inventory script to a temporary file
+        script_path = "/home/ubuntu/TF/generate_inventory.sh"
+        with open(script_path, 'w') as f:
+            f.write(inventory_script.strip())
+
+        # Make the script executable
+        subprocess.run(["chmod", "+x", script_path], check=True)
+
+        # Execute the inventory script
+        subprocess.run([script_path], check=True)
+
+    def create_main_playbook(self):
+        # Path to the main playbook
+        playbook_path = "/home/ubuntu/ansible/main.yml"
+
+        # Define the content of the main playbook
+        playbook_content = """
+---
+- name: Setup PostgreSQL on All Servers
+  hosts: all  # Targets both primary and replica hosts
+  become: yes
+  tasks:
+    - name: Install PostgreSQL
+      include_tasks: tasks/install.yml
+
+- name: Apply PostgreSQL configuration
+  hosts: all
+  become: yes
+  tasks:
+    - include_tasks: tasks/configure_postgres.yml
+
+- name: Configure PostgreSQL Primary
+  hosts: primary-db
+  become: yes
+  tasks:
+    - include_tasks: tasks/configure_primary.yml
+
+- name: Configure PostgreSQL Replicas
+  hosts: replica-db
+  become: yes
+  tasks:
+    - include_tasks: tasks/configure_replica.yml
+        """
+
+        # Write the playbook content to the file
+        with open(playbook_path, 'w') as f:
+            f.write(playbook_content.strip())
+
+class ExecuteAnsibleScript(Resource):
+    def post(self):
+        try:
+            # Execute the Ansible playbook
+            playbook_path = "/home/ubuntu/ansible/main.yml"
+            subprocess.run(["ansible-playbook", playbook_path], check=True)
 
             return jsonify({"message": "Ansible playbook executed successfully!"})
         except subprocess.CalledProcessError as e:
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": str(e), "output": e.stdout}), 500
+
 
 # Flask-Restful API resources
 api.add_resource(GenerateTerraform, '/generate-terraform')
 api.add_resource(PlanTerraform, '/plan-terraform')
 api.add_resource(ApplyTerraform, '/apply-terraform')
-api.add_resource(ExecuteAnsible, '/execute-ansible')
+api.add_resource(CreateAnsibleScript, '/create-ansible-script')
+api.add_resource(ExecuteAnsibleScript, '/execute-ansible-script')
 
 if __name__ == '__main__':
     app.run(debug=True)
