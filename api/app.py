@@ -146,7 +146,10 @@ class CreateAnsibleScript(Resource):
         try:
             self.create_inventory()
 
-            # self.create_main_playbook()
+            data = request.json
+            max_connections = data.get ('max_connections', '100')
+            shared_buffers = data.get ('shared_buffers', '256MB')
+            self.create_main_playbook(max_connections, shared_buffers)
 
             return jsonify({"message": "Ansible inventory and playbook created successfully!"})
         except Exception as e:
@@ -192,49 +195,135 @@ echo "" >> $inventory_path
         # Execute the inventory script
         subprocess.run([script_path], check=True)
 
-    def create_main_playbook(self):
+    def create_main_playbook(self, max_connections, shared_buffers):
         # Path to the main playbook
         playbook_path = "/home/ubuntu/ansible/main.yml"
 
-        # Define the content of the main playbook
-        playbook_content = """
+        # Define the template for the main playbook
+        playbook_template = """
 ---
 - name: Setup PostgreSQL on All Servers
   hosts: all  # Targets both primary and replica hosts
   become: yes
   tasks:
     - name: Install PostgreSQL
-      include_tasks: tasks/install.yml
+      apt:
+        update_cache: yes
+        name:
+          - postgresql
+          - postgresql-contrib
+        state: present
 
-- name: Apply PostgreSQL configuration
-  hosts: all
-  become: yes
-  tasks:
-    - include_tasks: tasks/configure_postgres.yml
+    - name: Ensure PostgreSQL is running and enabled
+      systemd:
+        name: postgresql
+        state: started
+        enabled: yes
 
-- name: Configure PostgreSQL Primary
-  hosts: primary-db
-  become: yes
-  tasks:
-    - include_tasks: tasks/configure_primary.yml
+    - name: Update PostgreSQL configuration and restart service
+      lineinfile:
+        path: /etc/postgresql/16/main/postgresql.conf
+        regexp: '^max_connections\\s*=\\s*\\d+'
+        line: 'max_connections = {{ max_connections }}'
+      notify: Restart PostgreSQL
 
-- name: Configure PostgreSQL Replicas
-  hosts: replica-db
-  become: yes
-  tasks:
-    - include_tasks: tasks/configure_replica.yml
-        """
+    - name: Update shared_buffers to '{{ shared_buffers }}'
+      lineinfile:
+        path: /etc/postgresql/16/main/postgresql.conf
+        regexp: '^shared_buffers\\s*=\\s*[\'"]?\\d+MB[\'"]?'
+        line: 'shared_buffers = \'{{ shared_buffers }}\''
+      notify: Restart PostgreSQL
 
-        # Write the playbook content to the file
+    - name: Configure PostgreSQL for replication (Primary)
+      lineinfile:
+        path: /etc/postgresql/16/main/postgresql.conf
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - { regexp: '^#wal_level', line: 'wal_level = logical' }
+        - { regexp: '^#wal_log_hints', line: 'wal_log_hints = on' }
+        - { regexp: '^#max_wal_senders', line: 'max_wal_senders = 5' }
+        - { regexp: '^#listen_addresses', line: "listen_addresses = '*'" }
+
+    - name: Allow replication connections from replicas (Primary)
+      lineinfile:
+        path: /etc/postgresql/16/main/pg_hba.conf
+        line: "host replication all {{ item }}/32 md5"
+      loop: "{{ groups['replicas'] | map('extract', hostvars, 'ansible_host') | list }}"
+
+    - name: Create replication user
+      postgresql_user:
+        state: present
+        name: replica_user
+        password: replica_password
+        role_attr_flags: REPLICATION
+      become: true
+      become_user: postgres
+
+    - name: Restart PostgreSQL to apply changes
+      systemd:
+        name: postgresql
+        state: restarted
+
+    - name: Stop PostgreSQL service on replica
+      systemd:
+        name: postgresql
+        state: stopped
+
+    - name: Clear existing PostgreSQL data directory
+      file:
+        path: /var/lib/postgresql/16/main
+        state: absent
+      become: true
+
+    - name: Set replication slot name
+      set_fact:
+        replication_slot_name: "replica_{{ inventory_hostname | regex_replace('-', '_') }}"
+
+    - name: Copy data from primary node
+      command: >
+        pg_basebackup -h {{ hostvars['primary-db'].ansible_host }} -U replica_user -X stream -C -S {{ replication_slot_name }} -v -R -D /var/lib/postgresql/16/main/
+      become: true
+      environment:
+        PGPASSWORD: 'replica_password'
+
+    - name: Ensure correct ownership of the PostgreSQL data directory
+      file:
+        path: /var/lib/postgresql/16/main
+        state: directory
+        owner: postgres
+        group: postgres
+        recurse: yes
+      become: true
+
+    - name: Start PostgreSQL service on replica
+      systemd:
+        name: postgresql
+        state: started
+
+  handlers:
+    - name: Restart PostgreSQL
+      systemd:
+        name: postgresql
+        state: restarted
+"""
+
+        # Render the playbook content using Jinja2
+        template = Template(playbook_template)
+        rendered_playbook_content = template.render(max_connections=max_connections, shared_buffers=shared_buffers)
+
+        # Write the rendered playbook content to the file
         with open(playbook_path, 'w') as f:
-            f.write(playbook_content.strip())
+            f.write(rendered_playbook_content.strip())
+
 
 class ExecuteAnsibleScript(Resource):
     def post(self):
         try:
             # Execute the Ansible playbook
+            ansible_inventory = "/home/ubuntu/ansible/inventory/hosts"
             playbook_path = "/home/ubuntu/ansible/main.yml"
-            subprocess.run(["ansible-playbook", playbook_path], check=True)
+            subprocess.run(["ansible-playbook", "-i", ansible_inventory, ansible_playbook], check=True)
 
             return jsonify({"message": "Ansible playbook executed successfully!"})
         except subprocess.CalledProcessError as e:
