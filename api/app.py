@@ -178,9 +178,11 @@ echo "[primary]" > $inventory_path
 echo "primary-db ansible_host=$primary_ip ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu/imamit.a001.pem" >> $inventory_path
 echo "" >> $inventory_path
 
+counter = 1
 echo "[replicas]" >> $inventory_path
 for ip in $replica_ips; do
-  echo "replica-db ansible_host=$ip ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu/imamit.a001.pem" >> $inventory_path
+  echo "replica-db${counter} ansible_host=$ip ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu/imamit.a001.pem" >> $inventory_path
+  ((counter++))
 done
 
 echo "" >> $inventory_path
@@ -227,14 +229,12 @@ echo "" >> $inventory_path
         path: /etc/postgresql/16/main/postgresql.conf
         regexp: '^max_connections'
         line: 'max_connections = {{ max_connections }}'
-      notify: Restart PostgreSQL
 
     - name: Update shared_buffers to '{{ shared_buffers }}'
       lineinfile:
         path: /etc/postgresql/16/main/postgresql.conf
         regexp: '^shared_buffers'
         line: "shared_buffers = '{{ shared_buffers }}'"
-      notify: Restart PostgreSQL
 {% raw %}
     - name: Configure PostgreSQL for replication (Primary)
       lineinfile:
@@ -246,12 +246,14 @@ echo "" >> $inventory_path
         - { regexp: '^#wal_log_hints', line: 'wal_log_hints = on' }
         - { regexp: '^#max_wal_senders', line: 'max_wal_senders = 5' }
         - { regexp: '^#listen_addresses', line: "listen_addresses = '*'" }
+      when: "'primary' in group_names" 
 
     - name: Allow replication connections from replicas (Primary)
       lineinfile:
         path: /etc/postgresql/16/main/pg_hba.conf
         line: "host replication all {{ item }}/32 md5"
       loop: "{{ groups['replicas'] | map('extract', hostvars, 'ansible_host') | list }}"
+      when: "'primary' in group_names" 
 
     - name: Create replication user
       postgresql_user:
@@ -261,26 +263,31 @@ echo "" >> $inventory_path
         role_attr_flags: REPLICATION
       become: true
       become_user: postgres
+      when: "'primary' in group_names" 
 
     - name: Restart PostgreSQL to apply changes
       systemd:
         name: postgresql
         state: restarted
+      when: "'primary' in group_names" 
 
     - name: Stop PostgreSQL service on replica
       systemd:
         name: postgresql
         state: stopped
+      when: "'replica' in group_names"
 
     - name: Clear existing PostgreSQL data directory
       file:
         path: /var/lib/postgresql/16/main
         state: absent
       become: true
+      when: "'replica' in group_names"
 
     - name: Set replication slot name
       set_fact:
         replication_slot_name: "replica_{{ inventory_hostname | regex_replace('-', '_') }}"
+      when: "'replica' in group_names"
 
     - name: Copy data from primary node
       command: >
@@ -288,6 +295,8 @@ echo "" >> $inventory_path
       become: true
       environment:
         PGPASSWORD: 'replica_password'
+      when: "'replica' in group_names"
+
 {% endraw %}
     - name: Ensure correct ownership of the PostgreSQL data directory
       file:
@@ -297,17 +306,14 @@ echo "" >> $inventory_path
         group: postgres
         recurse: yes
       become: true
+      when: "'replica' in group_names"
 
     - name: Start PostgreSQL service on replica
       systemd:
         name: postgresql
         state: started
+      when: "'replica' in group_names"
 
-  handlers:
-    - name: Restart PostgreSQL
-      systemd:
-        name: postgresql
-        state: restarted
 """        
 
         # Render the playbook content using Jinja2
