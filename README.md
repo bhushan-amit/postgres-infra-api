@@ -132,7 +132,7 @@ To set up your PostgreSQL read-replicas infrastructure, follow the steps below:
    ```bash
    curl -X POST http://localhost:5000/generate-terraform \
    -H "Content-Type: application/json" \
-   -d '{"instance_type": "t2.medium", "replica_count": 4}'
+   -d '{"instance_type": "t2.medium", "replica_count": 2}'
    ```
 
 2. **Plan Terraform Deployment**:
