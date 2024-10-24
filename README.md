@@ -188,7 +188,7 @@ postgres-infra-api/
 
 ## Troubleshooting
 
-1. **SSH access to EC2 instances**: Ensure you have the correct SSH key file configured and accessible.
+1. **SSH access to EC2 instances**: Ensure you have the correct SSH key file configured and accessible and used the same here when creating the instance by terraform script.
 
 2. **Max WAL Senders Limit Exceeded**:  The max_wal_senders parameter controls the maximum number of concurrent WAL sender processes, which are required for streaming replication and base backups. If set less, you might need to increase
 
