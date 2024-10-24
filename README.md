@@ -20,7 +20,9 @@ This repository contains  Ansible playbooks, Terraform configurations and a Flas
 3. [Available API Endpoints](#available-api-endpoints)
 4. [Usage](#usage)
 5. [Repository Structure](#repository-structure-after-running-all-the-scripts)
-6. [Testing the Replication Setup](#testing-the-replication-setup)
+6. [Troubleshooting] (#troubleshooting)
+7. [Testing the Replication Setup](#testing-the-replication-setup)
+
 
 ---
 
