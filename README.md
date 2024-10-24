@@ -188,9 +188,26 @@ postgres-infra-api/
 
 ## Troubleshooting
 
-1. **SSH access to EC2 instances**: Ensure you have the correct SSH key file configured and accessible and used the same here when creating the instance by terraform script. Alternatively, one can setup to run Ansible using SSM. Please follow onlince documentation to achieve the same
 
-2. **Max WAL Senders Limit Exceeded**:  The max_wal_senders parameter controls the maximum number of concurrent WAL sender processes, which are required for streaming replication and base backups. If set less, you might need to increase
+### 1. Ensuring SSH Access to EC2 Instances
+When creating EC2 instances using Terraform, ensure that the correct SSH key file is configured and accessible. Verify that the key file used during instance creation is the same as the one specified for SSH access.
+
+Alternatively, if SSH access is not feasible, you can configure Ansible to connect via AWS Systems Manager (SSM). Refer to the official Ansible and AWS documentation for detailed instructions on setting up Ansible with SSM.
+
+### 2. Resolving "Max WAL Senders Limit Exceeded"
+The `max_wal_senders` parameter in PostgreSQL controls the maximum number of concurrent WAL (Write-Ahead Logging) sender processes, which are required for streaming replication and base backups. If you encounter a "Max WAL Senders Limit Exceeded" error, increase the `max_wal_senders` value in the PostgreSQL configuration file (`postgresql.conf`) to accommodate more concurrent senders.
+
+### 3. Addressing First-Time SSH Connections in Ansible
+When running Ansible for the first time, you may need to confirm the authenticity of each host by typing "yes" to proceed with the SSH connection. If you are prompted multiple times, you need to respond "yes" for each host. Sometimes, partial connections may cause the script to proceed without completing the full process, requiring you to rerun the playbook.
+
+### 4. Fixing "Replication Slot Already Exists" Error
+If you encounter an error indicating that a replication slot already exists but replication is not functioning as expected, you can drop the existing replication slot on the primary database and rerun the playbook. This happens due to a partial run of Ansible script.  Use the following SQL command to drop the replication slot:
+
+```sql
+SELECT pg_drop_replication_slot('replica_replica_db1');
+```
+
+Once the slot is dropped, rerun the playbook to successfully recreate the slot and complete the replication setup.
 
 
 ## Testing the Replication Setup
